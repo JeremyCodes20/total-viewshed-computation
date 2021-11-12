@@ -1,3 +1,4 @@
 *.raw
 .vscode/
 .vs/
+*.exe
