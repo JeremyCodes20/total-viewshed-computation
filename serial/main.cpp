@@ -9,7 +9,6 @@
 const int map_width = 6000;
 const int mask_width = 5; // mask == range, the width of the box shaped range one can see from the origin
 const char* dem_location = "../data/srtm_14_04_6000x6000_short16.raw";
-int num_threads = 4;
 
 int openDem(const char* location, std::vector<short> &dem);
 void testDemRead(std::vector<short> &dem);
@@ -51,7 +50,6 @@ int main()
 void computeTotalViewshed(std::vector<short> &dem, std::vector<short> &vshed)
 {
     int i;
-#pragma omp parallel for num_threads(num_threads) shared(dem, vshed) private(i)
     for (i = 0; i < map_width * map_width; ++i)
     {
         vshed[i] = singleViewshedCount(i, dem);
