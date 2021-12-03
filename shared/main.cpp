@@ -48,6 +48,9 @@ int main()
     return 0;
 }
 
+/*
+    Calculate the viewshed for every possible origin in the dem and store visibility counts in vshed
+*/
 void computeTotalViewshed(std::vector<short> &dem, std::vector<short> &vshed)
 {
     int i;
@@ -58,6 +61,9 @@ void computeTotalViewshed(std::vector<short> &dem, std::vector<short> &vshed)
     }
 }
 
+/*
+    Calculate the viewshed for a given origin
+*/
 short singleViewshedCount(int origin, std::vector<short> &dem)
 {
     short count = 0;
@@ -93,26 +99,6 @@ short singleViewshedCount(int origin, std::vector<short> &dem)
             }
         }
     }
-    // for (p = origin - range_length; p < origin + range_length; ++p)
-    // {
-    //     if (p < 0 || p > map_width * map_width || p == origin) continue;
-    //     p_height = dem[p];
-    //     ox = static_cast<float>(origin % map_width);
-    //     oy = static_cast<float>(origin / map_width);
-    //     px = static_cast<float>(p % map_width);
-    //     py = static_cast<float>(p / map_width);
-    //     dx = ox - px;
-    //     dy = oy - py;
-    //     d = hypot(dx, dy);
-    //     slope = (p_height - origin_height) / d;
-    //     float max_slope = -std::numeric_limits<float>::max();
-    //     bLine(ox, oy, px, py, dem, max_slope, origin_height);
-    //     if (slope > max_slope)
-    //     {
-    //         printf("I see %d from %d. Slope is %f\n", p, origin, slope);
-    //     }
-    //     // printf("Slope: %f\n", slope);
-    // }
 
     return count;
 }
@@ -153,12 +139,18 @@ void testDemRead(std::vector<short> &dem)
     }
 }
 
+/*
+    Convert 1-dimensional index to 2-dimensional indices
+*/
 void toGridCoords(int& index, int& x, int& y)
 {
     x = index % map_width;
     y = index / map_width;
 }
 
+/*
+    Convert 2-dimensional indices to 1-dimensional index
+*/
 void toFlatCoords(int& x, int& y, int& index)
 {
     index = (y * map_width) + x;
@@ -263,33 +255,4 @@ else
     {
         (y0 > y1) ? bLineUp(x1, y1, x0, y0, dem, max_slope, origin_height) : bLineUp(x0, y0, x1, y1, dem, max_slope, origin_height);
     }
-}
-
-void generateMask(std::vector<std::vector<short>> &mask)
-{
-    int mask_size = mask_width * mask_width;
-    int originx = mask_width / 2;
-    int originy = originx;
-    int i = 0;
-    for (std::vector<short> &cell : mask)
-    {
-        int cellx = i % mask_width;
-        int celly = i / mask_size;
-
-        // bLine(cellx, celly, originx, originy, cell);
-
-        ++i;
-    }
-}
-
-void reportMask(std::vector<std::vector<short>> &mask)
-{
-    size_t count = 0;
-    printf("Mask.size(): %d", mask.size());
-    for (std::vector<short> &cell : mask)
-    {
-        printf("(%d, %d)\n", cell[0], cell[1]);
-        ++count;
-    }
-    printf("Count: %d\n", count);
 }
