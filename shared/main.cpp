@@ -10,26 +10,30 @@ const char* dem_location = "../data/srtm_14_04_6000x6000_short16.raw";
 
 int openDem(const char* location, std::vector<short> &dem);
 void testDemRead(std::vector<short> &dem);
-void bLineDown(int x0, int y0, int x1, int y1);
-void bLineUp(int x0, int y0, int x1, int y1);
-void bLine(int x0, int y0, int x1, int y1);
-void generateMask(short** mask);
+void bLineDown(int x0, int y0, int x1, int y1, std::vector<short> &line);
+void bLineUp(int x0, int y0, int x1, int y1, std::vector<short> &line);
+void bLine(int x0, int y0, int x1, int y1, std::vector<short> &line);
+void generateMask(std::vector<std::vector<short>> &mask);
+void reportMask(std::vector<std::vector<short>> &mask);
 
 int main()
 {
     // Digital Elevation Map: 6000x6000 array of shorts
     std::vector<short> dem;
-
     if (openDem(dem_location, dem))
     {
         printf("Failed to open input file: %s\n", dem_location);
         return 1; // File failed to open, exit program
     }
     printf("Opened input file: %s\n", dem_location);
-    testDemRead(dem);
+    // testDemRead(dem);
 
-    // short** mask = new short*[mask_width * mask_width];
-    // bLine(0, 0, 40, 30);
+    std::vector<short> test;
+    bLine(49, 49, 49, 0, test);
+
+    std::vector<std::vector<short>> mask(mask_width * mask_width, std::vector<short>());
+    // generateMask(mask);
+    // reportMask(mask);
 
     return 0;
 }
@@ -74,7 +78,7 @@ void testDemRead(std::vector<short> &dem)
     Calculate line when the slope is negative (or 0!!)
     Source: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 */
-void bLineDown(int x0, int y0, int x1, int y1)
+void bLineDown(int x0, int y0, int x1, int y1, std::vector<short> &line)
 {
     int dx = x1 - x0;
     int dy = y1 - y0;
@@ -92,6 +96,8 @@ void bLineDown(int x0, int y0, int x1, int y1)
     {
         // add x,y to line collection
         printf("(%d, %d)\n", x, y);
+        line.push_back(x);
+        line.push_back(y);
         if (D > 0)
         {
             y += yi;
@@ -108,7 +114,7 @@ void bLineDown(int x0, int y0, int x1, int y1)
     Calculate line when the slope is positive
     Source: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 */
-void bLineUp(int x0, int y0, int x1, int y1)
+void bLineUp(int x0, int y0, int x1, int y1, std::vector<short> &line)
 {
     int dx = x1 - x0;
     int dy = y1 - y0;
@@ -126,6 +132,8 @@ void bLineUp(int x0, int y0, int x1, int y1)
     {
         // add x,y to line collection
         printf("(%d, %d)\n", x, y);
+        line.push_back(x);
+        line.push_back(y);
         if (D > 0)
         {
             x += xi;
@@ -142,22 +150,43 @@ void bLineUp(int x0, int y0, int x1, int y1)
     Calculate what points are intersected by a line between (x0,y0) and (x1,y1)
     Source: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 */
-void bLine(int x0, int y0, int x1, int y1)
+void bLine(int x0, int y0, int x1, int y1, std::vector<short> &line)
 {
     if (abs(y1 - y0) < abs(x1 - x0))
     {
-        (x0 > x1) ? bLineDown(x1, y1, x0, y0) : bLineDown(x0, y0, x1, y1);
+        (x0 > x1) ? bLineDown(x1, y1, x0, y0, line) : bLineDown(x0, y0, x1, y1, line);
     }
     else
     {
-        (y0 > y1) ? bLineUp(x1, y1, x0, y0) : bLineUp(x0, y0, x1, y1);
+        (y0 > y1) ? bLineUp(x1, y1, x0, y0, line) : bLineUp(x0, y0, x1, y1, line);
     }
 }
 
-void generateMask(short** mask)
+void generateMask(std::vector<std::vector<short>> &mask)
 {
-    for (int cell = 0; cell < mask_width * mask_width; ++cell)
+    int mask_size = mask_width * mask_width;
+    int originx = mask_width / 2;
+    int originy = originx;
+    int i = 0;
+    for (std::vector<short> &cell : mask)
     {
-        // mask[cell] = new short
+        int cellx = i % mask_width;
+        int celly = i / mask_size;
+
+        bLine(cellx, celly, originx, originy, cell);
+
+        ++i;
     }
+}
+
+void reportMask(std::vector<std::vector<short>> &mask)
+{
+    size_t count = 0;
+    printf("Mask.size(): %d", mask.size());
+    for (std::vector<short> &cell : mask)
+    {
+        printf("(%d, %d)\n", cell[0], cell[1]);
+        ++count;
+    }
+    printf("Count: %d\n", count);
 }
