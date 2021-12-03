@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <vector>
 #include <string>
+#include <cmath>
 
 const int map_width = 6000;
 const int mask_width = 99; // mask == range, the width of the box shaped range one can see from the origin
@@ -15,6 +16,7 @@ void bLineUp(int x0, int y0, int x1, int y1, std::vector<short> &line);
 void bLine(int x0, int y0, int x1, int y1, std::vector<short> &line);
 void generateMask(std::vector<std::vector<short>> &mask);
 void reportMask(std::vector<std::vector<short>> &mask);
+int singleViewshedCount(int origin, std::vector<short> &dem);
 
 int main()
 {
@@ -28,14 +30,37 @@ int main()
     printf("Opened input file: %s\n", dem_location);
     // testDemRead(dem);
 
-    std::vector<short> test;
-    bLine(49, 49, 49, 0, test);
+    singleViewshedCount(0, dem);
 
-    std::vector<std::vector<short>> mask(mask_width * mask_width, std::vector<short>());
+    // std::vector<short> test;
+    // bLine(49, 49, 49, 0, test);
+
+    // std::vector<std::vector<short>> mask(mask_width * mask_width, std::vector<short>());
     // generateMask(mask);
     // reportMask(mask);
 
     return 0;
+}
+
+int singleViewshedCount(int origin, std::vector<short> &dem)
+{
+    int count = 0;
+    short origin_height = dem[origin];
+    short p_height;
+
+    int range_length = (mask_width * mask_width - 1) / 2;
+    for (int p = origin - range_length; p < origin + range_length; ++p)
+    {
+        if (p < 0 || p > map_width * map_width || p == origin) continue;
+        p_height = dem[p];
+        float dx = (static_cast<float>(origin % map_width)) - (p % map_width);
+        float dy = (static_cast<float>(origin / map_width)) - (p / map_width);
+        float d = hypot(dx, dy);
+        float slope = (p_height - origin_height) / d;
+        printf("Slope: %f\n", slope);
+    }
+
+    return count;
 }
 
 /*
