@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <cmath>
+#include <limits>
 
 const int map_width = 6000;
 const int mask_width = 99; // mask == range, the width of the box shaped range one can see from the origin
@@ -11,9 +12,9 @@ const char* dem_location = "../data/srtm_14_04_6000x6000_short16.raw";
 
 int openDem(const char* location, std::vector<short> &dem);
 void testDemRead(std::vector<short> &dem);
-void bLineDown(int x0, int y0, int x1, int y1, std::vector<short> &line);
+void bLineDown(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& max_slope, short& origin_height);
 void bLineUp(int x0, int y0, int x1, int y1, std::vector<short> &line);
-void bLine(int x0, int y0, int x1, int y1, std::vector<short> &line);
+void bLine(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& max_slope, short& origin_height);
 void generateMask(std::vector<std::vector<short>> &mask);
 void reportMask(std::vector<std::vector<short>> &mask);
 int singleViewshedCount(int origin, std::vector<short> &dem);
@@ -27,10 +28,10 @@ int main()
         printf("Failed to open input file: %s\n", dem_location);
         return 1; // File failed to open, exit program
     }
-    printf("Opened input file: %s\n", dem_location);
+    printf("Opened input file: %s\nVector size: %d\n", dem_location, dem.size());
     // testDemRead(dem);
 
-    singleViewshedCount(0, dem);
+    singleViewshedCount(990, dem);
 
     // std::vector<short> test;
     // bLine(49, 49, 49, 0, test);
@@ -47,20 +48,55 @@ int singleViewshedCount(int origin, std::vector<short> &dem)
     int count = 0;
     short origin_height = dem[origin];
     short p_height;
-    float dx, dy, d, slope;
+    float dx, dy, d, slope, ox, oy, px, py;
 
     int range_length = (mask_width * mask_width - 1) / 2;
+    int range_radius = (mask_width - 1) / 2;
     int p;
-    for (p = origin - range_length; p < origin + range_length; ++p)
+    // TODO: this is likely partially correct, still need to figure out left and right bounds
+    for (int i = -range_radius; i < range_radius; ++i)
     {
-        if (p < 0 || p > map_width * map_width || p == origin) continue;
-        p_height = dem[p];
-        dx = (static_cast<float>(origin % map_width)) - (p % map_width);
-        dy = (static_cast<float>(origin / map_width)) - (p / map_width);
-        d = hypot(dx, dy);
-        slope = (p_height - origin_height) / d;
-        // printf("Slope: %f\n", slope);
+        for (int j = -range_radius; j < range_radius; ++j)
+        {
+            p = origin + (i * mask_width + j);
+            if (p < 0 || p > map_width * map_width || p == origin) continue;
+            p_height = dem[p];
+            ox = static_cast<float>(origin % map_width);
+            oy = static_cast<float>(origin / map_width);
+            px = static_cast<float>(p % map_width);
+            py = static_cast<float>(p / map_width);
+            dx = ox - px;
+            dy = oy - py;
+            d = hypot(dx, dy);
+            slope = (p_height - origin_height) / d;
+            float max_slope = -std::numeric_limits<float>::max();
+            bLine(ox, oy, px, py, dem, max_slope, origin_height);
+            if (slope > max_slope)
+            {
+                printf("I see %d from %d. Slope is %f\n", p, origin, slope);
+            }
+        }
     }
+    // for (p = origin - range_length; p < origin + range_length; ++p)
+    // {
+    //     if (p < 0 || p > map_width * map_width || p == origin) continue;
+    //     p_height = dem[p];
+    //     ox = static_cast<float>(origin % map_width);
+    //     oy = static_cast<float>(origin / map_width);
+    //     px = static_cast<float>(p % map_width);
+    //     py = static_cast<float>(p / map_width);
+    //     dx = ox - px;
+    //     dy = oy - py;
+    //     d = hypot(dx, dy);
+    //     slope = (p_height - origin_height) / d;
+    //     float max_slope = -std::numeric_limits<float>::max();
+    //     bLine(ox, oy, px, py, dem, max_slope, origin_height);
+    //     if (slope > max_slope)
+    //     {
+    //         printf("I see %d from %d. Slope is %f\n", p, origin, slope);
+    //     }
+    //     // printf("Slope: %f\n", slope);
+    // }
 
     return count;
 }
@@ -105,8 +141,10 @@ void testDemRead(std::vector<short> &dem)
     Calculate line when the slope is negative (or 0!!)
     Source: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 */
-void bLineDown(int x0, int y0, int x1, int y1, std::vector<short> &line)
+void bLineDown(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& max_slope, short& origin_height)
 {
+    float diffx, diffy, diff, slope;
+    short m;
     int dx = x1 - x0;
     int dy = y1 - y0;
     int yi = 1;
@@ -119,12 +157,17 @@ void bLineDown(int x0, int y0, int x1, int y1, std::vector<short> &line)
     int y = y0;
 
     // NOTE: may be just <
-    for (int x = x0; x <= x1; ++x)
+    for (int x = x0 + 1; x < x1; ++x)
     {
         // add x,y to line collection
-        printf("(%d, %d)\n", x, y);
-        line.push_back(x);
-        line.push_back(y);
+        // printf("(%d, %d)\n", x, y);
+        // flatten x,y coordinates to 1D
+        m = (y * map_width) + x;
+        diffx = x - x0;
+        diffy = y - y0;
+        diff = hypot(diffx, diffy);
+        slope = (dem[m] - origin_height) / diff;
+        if (slope > max_slope) max_slope = slope;
         if (D > 0)
         {
             y += yi;
@@ -155,7 +198,7 @@ void bLineUp(int x0, int y0, int x1, int y1, std::vector<short> &line)
     int x = x0;
 
     // NOTE: may be just <
-    for (int y = y0; y <= y1; ++y)
+    for (int y = y0 + 1; y < y1; ++y)
     {
         // add x,y to line collection
         printf("(%d, %d)\n", x, y);
@@ -177,15 +220,15 @@ void bLineUp(int x0, int y0, int x1, int y1, std::vector<short> &line)
     Calculate what points are intersected by a line between (x0,y0) and (x1,y1)
     Source: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 */
-void bLine(int x0, int y0, int x1, int y1, std::vector<short> &line)
+void bLine(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& max_slope, short& origin_height)
 {
     if (abs(y1 - y0) < abs(x1 - x0))
     {
-        (x0 > x1) ? bLineDown(x1, y1, x0, y0, line) : bLineDown(x0, y0, x1, y1, line);
+        (x0 > x1) ? bLineDown(x1, y1, x0, y0, dem, max_slope, origin_height) : bLineDown(x0, y0, x1, y1, dem, max_slope, origin_height);
     }
-    else
+else
     {
-        (y0 > y1) ? bLineUp(x1, y1, x0, y0, line) : bLineUp(x0, y0, x1, y1, line);
+        (y0 > y1) ? bLineUp(x1, y1, x0, y0, dem) : bLineUp(x0, y0, x1, y1, dem);
     }
 }
 
@@ -200,7 +243,7 @@ void generateMask(std::vector<std::vector<short>> &mask)
         int cellx = i % mask_width;
         int celly = i / mask_size;
 
-        bLine(cellx, celly, originx, originy, cell);
+        // bLine(cellx, celly, originx, originy, cell);
 
         ++i;
     }
