@@ -2,13 +2,14 @@
 #include <fstream>
 #include <stdio.h>
 #include <vector>
+#include <string>
 
 const int map_width = 6000;
 const int mask_width = 99; // mask == range, the width of the box shaped range one can see from the origin
 const char* dem_location = "../data/srtm_14_04_6000x6000_short16.raw";
 
-int openDem(const char* location, short* dem);
-void testDemRead(short* dem);
+int openDem(const char* location, std::vector<short> &dem);
+void testDemRead(std::vector<short> &dem);
 void bLineDown(int x0, int y0, int x1, int y1);
 void bLineUp(int x0, int y0, int x1, int y1);
 void bLine(int x0, int y0, int x1, int y1);
@@ -17,28 +18,26 @@ void generateMask(short** mask);
 int main()
 {
     // Digital Elevation Map: 6000x6000 array of shorts
-    short* dem = new short[map_width * map_width];
+    std::vector<short> dem;
 
     if (openDem(dem_location, dem))
     {
         printf("Failed to open input file: %s\n", dem_location);
-        delete[] dem;
         return 1; // File failed to open, exit program
     }
     printf("Opened input file: %s\n", dem_location);
-    // testDemRead(dem);
+    testDemRead(dem);
 
     // short** mask = new short*[mask_width * mask_width];
-    bLine(0, 0, 40, 30);
+    // bLine(0, 0, 40, 30);
 
-    delete[] dem;
     return 0;
 }
 
 /*
     Open DEM from RAW file and store in 1-dimensional short array
 */
-int openDem(const char* location, short* dem)
+int openDem(const char* location, std::vector<short> &dem)
 {
     std::ifstream input_raw(location, std::ios::binary);
     if (!input_raw.is_open())
@@ -47,11 +46,11 @@ int openDem(const char* location, short* dem)
     }
 
     int i = 0;
-    char buf[sizeof(short)];
+    short buf;
     input_raw.seekg(0, std::ios::beg);
-    while (input_raw.read(buf, sizeof(short)))
+    while (input_raw.read((char *)&buf, sizeof(short)))
     {
-        memcpy(&dem[i], buf, sizeof(short));
+        dem.push_back(buf);
         ++i;
     }
 
@@ -62,7 +61,7 @@ int openDem(const char* location, short* dem)
 /*
     Read a few values from the dem array to verify that input read was successful
 */
-void testDemRead(short* dem)
+void testDemRead(std::vector<short> &dem)
 {
     int upper_bound = map_width * map_width;
     for (int i = upper_bound - 100; i < upper_bound; ++i)
