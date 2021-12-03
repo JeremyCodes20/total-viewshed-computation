@@ -7,7 +7,7 @@
 #include <limits>
 
 const int map_width = 6000;
-const int mask_width = 99; // mask == range, the width of the box shaped range one can see from the origin
+const int mask_width = 5; // mask == range, the width of the box shaped range one can see from the origin
 const char* dem_location = "../data/srtm_14_04_6000x6000_short16.raw";
 
 int openDem(const char* location, std::vector<short> &dem);
@@ -54,11 +54,11 @@ int singleViewshedCount(int origin, std::vector<short> &dem)
     int range_radius = (mask_width - 1) / 2;
     int p;
     // TODO: this is likely partially correct, still need to figure out left and right bounds
-    for (int i = -range_radius; i < range_radius; ++i)
+    for (int i = -range_radius; i <= range_radius; ++i)
     {
-        for (int j = -range_radius; j < range_radius; ++j)
+        for (int j = -range_radius; j <= range_radius; ++j)
         {
-            p = origin + (i * mask_width + j);
+            p = origin + (i * map_width + j);
             if (p < 0 || p > map_width * map_width || p == origin) continue;
             p_height = dem[p];
             ox = static_cast<float>(origin % map_width);
@@ -73,7 +73,7 @@ int singleViewshedCount(int origin, std::vector<short> &dem)
             bLine(ox, oy, px, py, dem, max_slope, origin_height);
             if (slope > max_slope)
             {
-                printf("I see %d from %d. Slope is %f\n", p, origin, slope);
+                printf("I see %d(%d) from %d(%d). Slope is %f\n", p, p_height, origin, origin_height, slope);
             }
         }
     }
@@ -161,7 +161,7 @@ void bLineDown(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& m
     {
         // add x,y to line collection
         // printf("(%d, %d)\n", x, y);
-        // flatten x,y coordinates to 1D
+        // flatten x,y coordinates to 1D -> m
         m = (y * map_width) + x;
         diffx = x - x0;
         diffy = y - y0;
