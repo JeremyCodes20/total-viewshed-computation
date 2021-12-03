@@ -1,8 +1,10 @@
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
+#include <vector>
 
 const int map_width = 6000;
+const int mask_width = 99; // mask == range, the width of the box shaped range one can see from the origin
 const char* dem_location = "../data/srtm_14_04_6000x6000_short16.raw";
 
 int openDem(const char* location, short* dem);
@@ -10,6 +12,7 @@ void testDemRead(short* dem);
 void bLineDown(int x0, int y0, int x1, int y1);
 void bLineUp(int x0, int y0, int x1, int y1);
 void bLine(int x0, int y0, int x1, int y1);
+void generateMask(short** mask);
 
 int main()
 {
@@ -25,7 +28,8 @@ int main()
     printf("Opened input file: %s\n", dem_location);
     // testDemRead(dem);
 
-    bLine(5, 5, 5, 0);
+    // short** mask = new short*[mask_width * mask_width];
+    bLine(0, 0, 40, 30);
 
     delete[] dem;
     return 0;
@@ -148,5 +152,13 @@ void bLine(int x0, int y0, int x1, int y1)
     else
     {
         (y0 > y1) ? bLineUp(x1, y1, x0, y0) : bLineUp(x0, y0, x1, y1);
+    }
+}
+
+void generateMask(short** mask)
+{
+    for (int cell = 0; cell < mask_width * mask_width; ++cell)
+    {
+        // mask[cell] = new short
     }
 }
