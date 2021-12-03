@@ -47,17 +47,19 @@ int singleViewshedCount(int origin, std::vector<short> &dem)
     int count = 0;
     short origin_height = dem[origin];
     short p_height;
+    float dx, dy, d, slope;
 
     int range_length = (mask_width * mask_width - 1) / 2;
-    for (int p = origin - range_length; p < origin + range_length; ++p)
+    int p;
+    for (p = origin - range_length; p < origin + range_length; ++p)
     {
         if (p < 0 || p > map_width * map_width || p == origin) continue;
         p_height = dem[p];
-        float dx = (static_cast<float>(origin % map_width)) - (p % map_width);
-        float dy = (static_cast<float>(origin / map_width)) - (p / map_width);
-        float d = hypot(dx, dy);
-        float slope = (p_height - origin_height) / d;
-        printf("Slope: %f\n", slope);
+        dx = (static_cast<float>(origin % map_width)) - (p % map_width);
+        dy = (static_cast<float>(origin / map_width)) - (p / map_width);
+        d = hypot(dx, dy);
+        slope = (p_height - origin_height) / d;
+        // printf("Slope: %f\n", slope);
     }
 
     return count;
