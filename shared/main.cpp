@@ -5,9 +5,11 @@
 #include <string>
 #include <cmath>
 #include <limits>
+#include <chrono>
+using namespace std::chrono;
 
-const int map_width = 6000;
-const int mask_width = 5; // mask == range, the width of the box shaped range one can see from the origin
+const int map_width = 9; // TODO: fix this to 6000
+const int mask_width = 9; // mask == range, the width of the box shaped range one can see from the origin
 const char* dem_location = "../data/srtm_14_04_6000x6000_short16.raw";
 int num_threads = 4;
 
@@ -27,22 +29,48 @@ int main()
 {
     // Digital Elevation Map: 6000x6000 array of shorts
     std::vector<short> dem;
-    if (openDem(dem_location, dem))
-    {
-        printf("Failed to open input file: %s\n", dem_location);
-        return 1; // File failed to open, exit program
-    }
-    printf("Opened input file: %s\nVector size: %d\n", dem_location, dem.size());
+    // if (openDem(dem_location, dem))
+    // {
+    //     printf("Failed to open input file: %s\n", dem_location);
+    //     return 1; // File failed to open, exit program
+    // }
+    // printf("Opened input file: %s\nVector size: %d\nThreads: %d\n", dem_location, dem.size(), num_threads);
     // testDemRead(dem);
 
+    dem = {1, 1, 1, 1, 1, 1, 1, 1, 1,
+           1, 2, 2, 2, 2, 2, 2, 2, 2,
+           1, 2, 3, 3, 3, 3, 3, 2, 1,
+           1, 2, 3, 4, 4, 4, 3, 2, 1,
+           1, 2, 3, 4, 5, 4, 3, 2, 1,
+           1, 2, 3, 4, 4, 4, 3, 2, 1,
+           1, 2, 3, 3, 3, 3, 3, 2, 1,
+           1, 2, 2, 2, 2, 2, 2, 2, 2,
+           1, 1, 1, 1, 1, 1, 1, 1, 1,};
+
+    auto start = high_resolution_clock::now();
     std::vector<short> vshed(map_width * map_width, 0);
     computeTotalViewshed(dem, vshed);
+    auto total_execution = duration_cast<milliseconds>(high_resolution_clock::now() - start);
 
-    printf("First 20 values:\n");
+    printf("Total execution time (ms): %d\n", total_execution);
+
+    // printf("First 20 values:\n");
+    // int i;
+    // for (i = 0; i < 20; ++i)
+    // {
+    //     printf("%d ", vshed[i]);
+    // }
+
+    printf("Viewshed:\n");
     int i;
-    for (i = 0; i < 20; ++i)
+    int j;
+    for (i = 0; i < map_width; ++i)
     {
-        printf("%d ", vshed[i]);
+        for (j = 0; j < map_width; ++j)
+        {
+            printf("%3d ", vshed[(i * map_width) + j]);
+        }
+        printf("\n");
     }
 
     return 0;
