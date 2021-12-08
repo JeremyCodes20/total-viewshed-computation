@@ -7,7 +7,7 @@
 #include <float.h>
 #include <string>
 
-const int map_width = 6000; // TODO: fix this to 6000
+const int map_width = 6000;
 const int range = 15; // the width of the box shaped range one can see from the origin
 const int range_radius = (range - 1) / 2;
 const char* dem_location = "../data/srtm_14_04_6000x6000_short16.raw";
@@ -38,7 +38,6 @@ cudaError_t checkCuda(cudaError_t result)
   return result;
 }
 
-
 int main()
 {
     std::vector<short> dem;
@@ -48,6 +47,8 @@ int main()
         return 1; // File failed to open, exit program
     }
     printf("Opened input file: %s\nVector size: %d\n", dem_location, dem.size());
+
+    // small test dem
     // dem = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     //        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
     //        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
@@ -103,7 +104,7 @@ int main()
     writeViewshedPrim(output_location, vshed);
     // printRowsPrim(vshed);
 
-    compareOutput("./viewshed-gpu.raw", "../distributed/viewshed-64.raw");
+    // compareOutput("./viewshed-gpu.raw", "../distributed/viewshed-64.raw");
 
     // Free device memory
     cudaFree(dem_d);
@@ -238,7 +239,7 @@ __global__ void singleViewshedCount(short* dem_d, short* vshed_d, int map_width_
 {
     int origin = blockIdx.x * blockDim.x + threadIdx.x;
     int map_size = map_width_d * map_width_d;
-    if (origin >= map_size) return; // out of bounds TODO: replace this
+    if (origin >= map_size) return; // check threads out of bounds
     short count = 0;
     short origin_height = dem_d[origin];
     short p_height;
@@ -311,7 +312,6 @@ __device__ void bLineDown(int x0, int y0, int x1, int y1, short* dem_d, float& m
     int D = (2 * dy) - dx;
     int y = y0;
 
-    // NOTE: may be just <
     for (int x = x0 + 1; x < x1; ++x)
     {
         // flatten x,y coordinates to 1D -> m
@@ -352,7 +352,6 @@ __device__ void bLineUp(int x0, int y0, int x1, int y1, short* dem_d, float& max
     int D = (2 * dx) - dy;
     int x = x0;
 
-    // NOTE: may be just <
     for (int y = y0 + 1; y < y1; ++y)
     {
         toFlatCoords(x, y, m, map_width_d);

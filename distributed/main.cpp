@@ -10,11 +10,10 @@ const int map_width = 6000; // TODO: fix this to 6000
 const int range = 15; // the width of the box shaped range one can see from the origin
 const int range_radius = (range - 1) / 2;
 const char* dem_location = "../data/srtm_14_04_6000x6000_short16.raw";
-const char* out_file = "./viewshed.raw";
 int num_processes, rank;
 
 int openDem(const char* location, std::vector<short> &dem);
-int writeViewshed(const char* location, std::vector<short> &vshed);
+int writeViewshed(std::vector<short> &vshed);
 void printRows(std::vector<short> &rows);
 void bLineDown(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& max_slope, short& origin_height);
 void bLineUp(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& max_slope, short& origin_height);
@@ -29,9 +28,9 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_processes);
 
-    double start_time = MPI_Wtime();
+    double start_total_time = MPI_Wtime();
 
-    // calculate displacements and sendcounts;
+    // calculate displacements and sendcounts
     std::vector<int> sendcounts(num_processes, 0);
     std::vector<int> displs(num_processes, 0);
     int top_count = map_width * ((map_width / num_processes) + range_radius);
@@ -40,16 +39,13 @@ int main(int argc, char *argv[])
     int row_count = map_width / num_processes;
     int local_count = row_count * map_width;
     sendcounts[num_processes - 1] = top_count;
-    // printf("Rank 0\nsendcounts: %d\ndispls: %d\n", sendcounts[0], displs[0]);
     for (int i = 1; i < num_processes - 1; ++i)
     {
         sendcounts[i] = map_width * (row_count +  (2 * range_radius));
         displs[i] = i_displace - (map_width * range_radius);
         i_displace += row_count * map_width;
-        // printf("Rank %d\nsendcounts: %d\ndispls: %d\n", i, sendcounts[i], displs[i]);
     }
     displs[num_processes - 1] = i_displace - (map_width * range_radius);
-    // printf("Rank %d\nsendcounts: %d\ndispls: %d\n", num_processes, sendcounts[num_processes], displs[num_processes]);
 
     // Rank 0 open and read the DEM file
     std::vector<short> local_dem;
@@ -88,6 +84,7 @@ int main(int argc, char *argv[])
     }
 
     // compute viewshed for each assigned cell
+    double start_compute_time = MPI_Wtime();
     std::vector<short> local_counts(local_count, 1);
     int start;
     if (rank == 0)
@@ -103,6 +100,7 @@ int main(int argc, char *argv[])
     {
         local_counts[i] = singleViewshedCount(start, local_dem);
     }
+    double compute_time = MPI_Wtime() - start_compute_time;
 
     // collect computed viewsheds
     if (rank == 0)
@@ -111,11 +109,11 @@ int main(int argc, char *argv[])
         MPI_Gather(&local_counts[0], local_count, MPI_SHORT, &counts[0], local_count, MPI_SHORT, 0, MPI_COMM_WORLD);
 
         // output viewshed counts to RAW file
-        writeViewshed(out_file, counts);
+        writeViewshed(counts);
         // printRows(counts);
 
-        double total_time = MPI_Wtime() - start_time;
-        printf("Total execution time: %f\n", total_time);
+        double total_time = MPI_Wtime() - start_total_time;
+        printf("Viewshed computation time: %f\nTotal execution time: %f\n", compute_time, total_time);
     }
     else
     {
@@ -168,7 +166,7 @@ int openDem(const char* location, std::vector<short> &dem)
 /*
     Write computed viewshed counts to raw file
 */
-int writeViewshed(const char* location, std::vector<short> &vshed)
+int writeViewshed(std::vector<short> &vshed)
 {
     char* file_name;
     asprintf(&file_name, "./viewshed-%d.raw", num_processes);
@@ -201,7 +199,6 @@ short singleViewshedCount(int origin, std::vector<short> &dem)
     oy = static_cast<float>(origin / map_width);
 
     int p;
-    // TODO: this is likely partially correct, still need to figure out left and right bounds
     for (int i = -range_radius; i <= range_radius; ++i)
     {
         for (int j = -range_radius; j <= range_radius; ++j)
@@ -266,7 +263,6 @@ void bLineDown(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& m
     int D = (2 * dy) - dx;
     int y = y0;
 
-    // NOTE: may be just <
     for (int x = x0 + 1; x < x1; ++x)
     {
         // flatten x,y coordinates to 1D -> m
@@ -307,7 +303,6 @@ void bLineUp(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& max
     int D = (2 * dx) - dy;
     int x = x0;
 
-    // NOTE: may be just <
     for (int y = y0 + 1; y < y1; ++y)
     {
         toFlatCoords(x, y, m);
