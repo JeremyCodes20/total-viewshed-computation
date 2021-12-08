@@ -11,8 +11,7 @@ using namespace std::chrono;
 const int map_width = 6000; // TODO: fix this to 6000
 const int mask_width = 15; // mask == range, the width of the box shaped range one can see from the origin
 const char* dem_location = "../data/srtm_14_04_6000x6000_short16.raw";
-int num_threads = 4;
-bool show;
+int num_threads = 8;
 
 int openDem(const char* location, std::vector<short> &dem);
 void testDemRead(std::vector<short> &dem);
@@ -25,6 +24,7 @@ short singleViewshedCount(int origin, std::vector<short> &dem);
 void toGridCoords(int& index, int& x, int& y);
 void toFlatCoords(int& x, int& y, int& index);
 void computeTotalViewshed(std::vector<short> &dem, std::vector<short> &vshed);
+int writeViewshed(std::vector<short> &vshed);
 
 int main()
 {
@@ -51,28 +51,6 @@ int main()
     //         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
     //         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
-    // dem = {1, 1, 1, 1, 1, 1, 1, 1, 1,
-    //        1, 0, 0, 0, 0, 0, 0, 0, 1,
-    //        1, 0, 0, 0, 0, 0, 0, 0, 1,
-    //        1, 0, 0, 0, 0, 0, 0, 0, 1,
-    //        1, 0, 0, 0, 0, 0, 0, 0, 1,
-    //        1, 0, 0, 0, 0, 0, 0, 0, 1,
-    //        1, 0, 0, 0, 0, 0, 0, 0, 1,
-    //        1, 0, 0, 0, 0, 0, 0, 0, 1,
-    //        1, 1, 1, 1, 1, 1, 1, 1, 1};
-    // dem = {1, 1, 1, 1, 1, 1, 1, 1, 1,
-    //        1, 2, 2, 2, 2, 2, 2, 2, 2,
-    //        1, 2, 3, 3, 3, 3, 3, 2, 1,
-    //        1, 2, 3, 4, 4, 4, 3, 2, 1,
-    //        1, 2, 3, 4, 5, 4, 3, 2, 1,
-    //        1, 2, 3, 4, 4, 4, 3, 2, 1,
-    //        1, 2, 3, 3, 3, 3, 3, 2, 1,
-    //        1, 2, 2, 2, 2, 2, 2, 2, 2,
-    //        1, 1, 1, 1, 1, 1, 1, 1, 1};
-    // dem = {1, 1, 1,
-    //        1, 2, 1,
-    //        1, 1, 1};
-
     auto start = high_resolution_clock::now();
     std::vector<short> vshed(map_width * map_width, 0);
     computeTotalViewshed(dem, vshed);
@@ -87,18 +65,43 @@ int main()
     //     printf("%d ", vshed[i]);
     // }
 
-    printf("Viewshed:\n");
-    int i;
-    int j;
-    for (i = 0; i < map_width; ++i)
+    // printf("Viewshed:\n");
+    // int i;
+    // int j;
+    // for (i = 0; i < map_width; ++i)
+    // {
+    //     for (j = 0; j < map_width; ++j)
+    //     {
+    //         printf("%4d", vshed[(i * map_width) + j]);
+    //     }
+    //     printf("\n");
+    // }
+
+    writeViewshed(vshed);
+
+    return 0;
+}
+
+/*
+    Write computed viewshed counts to raw file
+*/
+int writeViewshed(std::vector<short> &vshed)
+{
+    // char* file_name;
+    // asprintf(&file_name, "./viewshed-shared-%d.raw", num_threads);
+
+    std::ofstream output_raw("./viewshed-shared.raw", std::ios::binary | std::ios::trunc);
+    if (!output_raw.is_open())
     {
-        for (j = 0; j < map_width; ++j)
-        {
-            printf("%4d", vshed[(i * map_width) + j]);
-        }
-        printf("\n");
+        return 1;
     }
 
+    printf("Writing output to file ./viewshed-shared.raw...  ");
+    output_raw.write((char const*)&vshed[0], map_width * map_width * sizeof(short));
+    printf("Done!\n");
+
+    output_raw.close();
+    // free(file_name);
     return 0;
 }
 
@@ -126,9 +129,6 @@ short singleViewshedCount(int origin, std::vector<short> &dem)
     float dx, dy, d, slope, ox, oy, px, py;
     ox = static_cast<float>(origin % map_width);
     oy = static_cast<float>(origin / map_width);
-    show = false;
-    if (origin == 0 || origin == 8 || origin == 80 || origin == 71) show = true;
-    if (show) printf("I am (%f, %f)\n", ox, oy);
 
     int range_length = (mask_width * mask_width - 1) / 2;
     int range_radius = (mask_width - 1) / 2;
@@ -146,14 +146,12 @@ short singleViewshedCount(int origin, std::vector<short> &dem)
             dx = ox - px;
             dy = oy - py;
             if ((j < 0 && dx < -j) || (j > 0 && dx > j)) continue; // left/right bounds
-            if (show) printf("Line for (%f, %f):\n", px, py);
             d = hypot(dx, dy);
             slope = (p_height - origin_height) / d;
             float max_slope = -std::numeric_limits<float>::max();
             bLine(ox, oy, px, py, dem, max_slope, origin_height);
             if (slope >= max_slope)
             {
-                if (show) printf("I see %d(%d) from %d(%d). Slope is %f\n", p, p_height, origin, origin_height, slope);
                 ++count;
             }
         }
@@ -239,7 +237,6 @@ void bLineDown(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& m
     for (int x = x0 + 1; x < x1; ++x)
     {
         // add x,y to line collection
-        if (show) printf("(%d, %d)\n", x, y);
         // flatten x,y coordinates to 1D -> m
         toFlatCoords(x, y, m);
         diffx = x - x0;
@@ -282,7 +279,6 @@ void bLineUp(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& max
     for (int y = y0 + 1; y < y1; ++y)
     {
         // add x,y to line collection
-        if (show) printf("(%d, %d)\n", x, y);
         toFlatCoords(x, y, m);
         diffx = x - x0;
         diffy = y - y0;
