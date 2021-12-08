@@ -8,10 +8,11 @@
 #include <chrono>
 using namespace std::chrono;
 
-const int map_width = 9; // TODO: fix this to 6000
-const int mask_width = 9; // mask == range, the width of the box shaped range one can see from the origin
+const int map_width = 6000; // TODO: fix this to 6000
+const int mask_width = 15; // mask == range, the width of the box shaped range one can see from the origin
 const char* dem_location = "../data/srtm_14_04_6000x6000_short16.raw";
 int num_threads = 4;
+bool show;
 
 int openDem(const char* location, std::vector<short> &dem);
 void testDemRead(std::vector<short> &dem);
@@ -29,23 +30,48 @@ int main()
 {
     // Digital Elevation Map: 6000x6000 array of shorts
     std::vector<short> dem;
-    // if (openDem(dem_location, dem))
-    // {
-    //     printf("Failed to open input file: %s\n", dem_location);
-    //     return 1; // File failed to open, exit program
-    // }
-    // printf("Opened input file: %s\nVector size: %d\nThreads: %d\n", dem_location, dem.size(), num_threads);
+    if (openDem(dem_location, dem))
+    {
+        printf("Failed to open input file: %s\n", dem_location);
+        return 1; // File failed to open, exit program
+    }
+    printf("Opened input file: %s\nVector size: %d\nThreads: %d\n", dem_location, dem.size(), num_threads);
     // testDemRead(dem);
 
-    dem = {1, 1, 1, 1, 1, 1, 1, 1, 1,
-           1, 2, 2, 2, 2, 2, 2, 2, 2,
-           1, 2, 3, 3, 3, 3, 3, 2, 1,
-           1, 2, 3, 4, 4, 4, 3, 2, 1,
-           1, 2, 3, 4, 5, 4, 3, 2, 1,
-           1, 2, 3, 4, 4, 4, 3, 2, 1,
-           1, 2, 3, 3, 3, 3, 3, 2, 1,
-           1, 2, 2, 2, 2, 2, 2, 2, 2,
-           1, 1, 1, 1, 1, 1, 1, 1, 1,};
+    // dem =  {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    //         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+
+    // dem = {1, 1, 1, 1, 1, 1, 1, 1, 1,
+    //        1, 0, 0, 0, 0, 0, 0, 0, 1,
+    //        1, 0, 0, 0, 0, 0, 0, 0, 1,
+    //        1, 0, 0, 0, 0, 0, 0, 0, 1,
+    //        1, 0, 0, 0, 0, 0, 0, 0, 1,
+    //        1, 0, 0, 0, 0, 0, 0, 0, 1,
+    //        1, 0, 0, 0, 0, 0, 0, 0, 1,
+    //        1, 0, 0, 0, 0, 0, 0, 0, 1,
+    //        1, 1, 1, 1, 1, 1, 1, 1, 1};
+    // dem = {1, 1, 1, 1, 1, 1, 1, 1, 1,
+    //        1, 2, 2, 2, 2, 2, 2, 2, 2,
+    //        1, 2, 3, 3, 3, 3, 3, 2, 1,
+    //        1, 2, 3, 4, 4, 4, 3, 2, 1,
+    //        1, 2, 3, 4, 5, 4, 3, 2, 1,
+    //        1, 2, 3, 4, 4, 4, 3, 2, 1,
+    //        1, 2, 3, 3, 3, 3, 3, 2, 1,
+    //        1, 2, 2, 2, 2, 2, 2, 2, 2,
+    //        1, 1, 1, 1, 1, 1, 1, 1, 1};
+    // dem = {1, 1, 1,
+    //        1, 2, 1,
+    //        1, 1, 1};
 
     auto start = high_resolution_clock::now();
     std::vector<short> vshed(map_width * map_width, 0);
@@ -68,7 +94,7 @@ int main()
     {
         for (j = 0; j < map_width; ++j)
         {
-            printf("%3d ", vshed[(i * map_width) + j]);
+            printf("%4d", vshed[(i * map_width) + j]);
         }
         printf("\n");
     }
@@ -98,6 +124,11 @@ short singleViewshedCount(int origin, std::vector<short> &dem)
     short origin_height = dem[origin];
     short p_height;
     float dx, dy, d, slope, ox, oy, px, py;
+    ox = static_cast<float>(origin % map_width);
+    oy = static_cast<float>(origin / map_width);
+    show = false;
+    if (origin == 0 || origin == 8 || origin == 80 || origin == 71) show = true;
+    if (show) printf("I am (%f, %f)\n", ox, oy);
 
     int range_length = (mask_width * mask_width - 1) / 2;
     int range_radius = (mask_width - 1) / 2;
@@ -108,21 +139,21 @@ short singleViewshedCount(int origin, std::vector<short> &dem)
         for (int j = -range_radius; j <= range_radius; ++j)
         {
             p = origin + (i * map_width + j);
-            if (p < 0 || p > map_width * map_width || p == origin) continue;
+            if (p < 0 || p > map_width * map_width || p == origin) continue; // top/bottom bounds and self
             p_height = dem[p];
-            ox = static_cast<float>(origin % map_width);
-            oy = static_cast<float>(origin / map_width);
             px = static_cast<float>(p % map_width);
             py = static_cast<float>(p / map_width);
             dx = ox - px;
             dy = oy - py;
+            if ((j < 0 && dx < -j) || (j > 0 && dx > j)) continue; // left/right bounds
+            if (show) printf("Line for (%f, %f):\n", px, py);
             d = hypot(dx, dy);
             slope = (p_height - origin_height) / d;
             float max_slope = -std::numeric_limits<float>::max();
             bLine(ox, oy, px, py, dem, max_slope, origin_height);
-            if (slope > max_slope)
+            if (slope >= max_slope)
             {
-                // printf("I see %d(%d) from %d(%d). Slope is %f\n", p, p_height, origin, origin_height, slope);
+                if (show) printf("I see %d(%d) from %d(%d). Slope is %f\n", p, p_height, origin, origin_height, slope);
                 ++count;
             }
         }
@@ -190,7 +221,8 @@ void toFlatCoords(int& x, int& y, int& index)
 */
 void bLineDown(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& max_slope, short& origin_height)
 {
-    float diffx, diffy, diff, slope;
+    float diffx, diffy, diff;
+    float slope = -std::numeric_limits<float>::max();
     int m;
     int dx = x1 - x0;
     int dy = y1 - y0;
@@ -207,7 +239,7 @@ void bLineDown(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& m
     for (int x = x0 + 1; x < x1; ++x)
     {
         // add x,y to line collection
-        // printf("(%d, %d)\n", x, y);
+        if (show) printf("(%d, %d)\n", x, y);
         // flatten x,y coordinates to 1D -> m
         toFlatCoords(x, y, m);
         diffx = x - x0;
@@ -250,7 +282,7 @@ void bLineUp(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& max
     for (int y = y0 + 1; y < y1; ++y)
     {
         // add x,y to line collection
-        // printf("(%d, %d)\n", x, y);
+        if (show) printf("(%d, %d)\n", x, y);
         toFlatCoords(x, y, m);
         diffx = x - x0;
         diffy = y - y0;
@@ -279,7 +311,7 @@ void bLine(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& max_s
     {
         (x0 > x1) ? bLineDown(x1, y1, x0, y0, dem, max_slope, origin_height) : bLineDown(x0, y0, x1, y1, dem, max_slope, origin_height);
     }
-else
+    else
     {
         (y0 > y1) ? bLineUp(x1, y1, x0, y0, dem, max_slope, origin_height) : bLineUp(x0, y0, x1, y1, dem, max_slope, origin_height);
     }
