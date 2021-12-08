@@ -6,6 +6,9 @@
 #include <limits>
 #include <float.h>
 #include <string>
+#include <chrono>
+
+using namespace std::chrono;
 
 const int map_width = 6000;
 const int range = 15; // the width of the box shaped range one can see from the origin
@@ -40,6 +43,8 @@ cudaError_t checkCuda(cudaError_t result)
 
 int main()
 {
+    auto start_execution = high_resolution_clock::now();
+
     std::vector<short> dem;
     if (openDem(dem_location, dem))
     {
@@ -83,11 +88,13 @@ int main()
 
     printf("tpb: %d\nbpg: %d\n", tpb, bpg);
     printf("Launching the kernel...");
+    auto start_kernel = high_resolution_clock::now();
     singleViewshedCount<<<dimGrid, dimBlock>>>(dem_d, vshed_d, map_width, range_radius);
     // singleViewshedCount<<<12, 12>>>(dem_d, vshed_d, map_width, range_radius);
 
     cudaDeviceSynchronize();
     printf("Kernel done!\n");
+    auto kernel_time = duration_cast<milliseconds>(high_resolution_clock::now() - start_kernel);
 
     // Copy array from device to host
     error = cudaMemcpy(vshed, vshed_d, dem.size() * sizeof(short), cudaMemcpyDeviceToHost);
@@ -109,6 +116,9 @@ int main()
     // Free device memory
     cudaFree(dem_d);
     cudaFree(vshed_d);
+
+    auto execution_time = duration_cast<milliseconds>(high_resolution_clock::now() - start_execution);
+    printf("Kernel time: %d\nTotal Execution: %d\n", kernel_time, execution_time);
 }
 
 /*
