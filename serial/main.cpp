@@ -7,7 +7,7 @@
 #include <limits>
 
 const int map_width = 6000;
-const int mask_width = 5; // mask == range, the width of the box shaped range one can see from the origin
+const int range = 5; // mask == range, the width of the box shaped range one can see from the origin
 const char* dem_location = "../data/srtm_14_04_6000x6000_short16.raw";
 
 int openDem(const char* location, std::vector<short> &dem);
@@ -63,8 +63,8 @@ short singleViewshedCount(int origin, std::vector<short> &dem)
     short p_height;
     float dx, dy, d, slope, ox, oy, px, py;
 
-    int range_length = (mask_width * mask_width - 1) / 2;
-    int range_radius = (mask_width - 1) / 2;
+    int range_length = (range * range - 1) / 2;
+    int range_radius = (range - 1) / 2;
     int p;
     // TODO: this is likely partially correct, still need to figure out left and right bounds
     for (int i = -range_radius; i <= range_radius; ++i)
@@ -265,13 +265,13 @@ else
 
 void generateMask(std::vector<std::vector<short>> &mask)
 {
-    int mask_size = mask_width * mask_width;
-    int originx = mask_width / 2;
+    int mask_size = range * range;
+    int originx = range / 2;
     int originy = originx;
     int i = 0;
     for (std::vector<short> &cell : mask)
     {
-        int cellx = i % mask_width;
+        int cellx = i % range;
         int celly = i / mask_size;
 
         // bLine(cellx, celly, originx, originy, cell);
