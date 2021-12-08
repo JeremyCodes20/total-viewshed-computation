@@ -6,13 +6,15 @@
 #include <cmath>
 #include <limits>
 
-const int map_width = 12; // TODO: fix this to 6000
-const int range = 5; // the width of the box shaped range one can see from the origin
+const int map_width = 6000; // TODO: fix this to 6000
+const int range = 15; // the width of the box shaped range one can see from the origin
 const int range_radius = (range - 1) / 2;
 const char* dem_location = "../data/srtm_14_04_6000x6000_short16.raw";
+const char* out_file = "./viewshed.raw";
 int num_processes, rank;
 
 int openDem(const char* location, std::vector<short> &dem);
+int writeViewshed(const char* location, std::vector<short> &vshed);
 void printRows(std::vector<short> &rows);
 void bLineDown(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& max_slope, short& origin_height);
 void bLineUp(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& max_slope, short& origin_height);
@@ -26,6 +28,8 @@ int main(int argc, char *argv[])
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_processes);
+
+    double start_time = MPI_Wtime();
 
     // calculate displacements and sendcounts;
     std::vector<int> sendcounts(num_processes, 0);
@@ -52,26 +56,26 @@ int main(int argc, char *argv[])
     if (rank == 0)
     {
         std::vector<short> dem;
-        // if (openDem(dem_location, dem))
-        // {
-        //     printf("Failed to open input file: %s\n", dem_location);
-        //     return 1; // File failed to open, exit program
-        // }
-        // printf("Opened input file: %s\nVector size: %d\nNumber of processes: %d\n", dem_location, dem.size(), num_processes);
+        if (openDem(dem_location, dem))
+        {
+            printf("Failed to open input file: %s\n", dem_location);
+            return 1; // File failed to open, exit program
+        }
+        printf("Opened input file: %s\nVector size: %zd\nNumber of processes: %d\n", dem_location, dem.size(), num_processes);
 
         // small-scale test DEM
-        dem = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-               1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-               1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-               1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-               1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-               1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-               1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-               1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-               1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-               1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-               1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-               1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+        // dem = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        //        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        //        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        //        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        //        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        //        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        //        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        //        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        //        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        //        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        //        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        //        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
         local_dem.resize(sendcounts[0]);
         MPI_Scatterv(&dem[0], &sendcounts[0], &displs[0], MPI_SHORT, &local_dem[0], sendcounts[rank], MPI_SHORT, 0, MPI_COMM_WORLD);
@@ -106,7 +110,12 @@ int main(int argc, char *argv[])
         std::vector<short> counts(map_width * map_width, 0);
         MPI_Gather(&local_counts[0], local_count, MPI_SHORT, &counts[0], local_count, MPI_SHORT, 0, MPI_COMM_WORLD);
 
-        printRows(counts);
+        // output viewshed counts to RAW file
+        writeViewshed(out_file, counts);
+        // printRows(counts);
+
+        double total_time = MPI_Wtime() - start_time;
+        printf("Total execution time: %f\n", total_time);
     }
     else
     {
@@ -153,6 +162,29 @@ int openDem(const char* location, std::vector<short> &dem)
     }
 
     input_raw.close();
+    return 0;
+}
+
+/*
+    Write computed viewshed counts to raw file
+*/
+int writeViewshed(const char* location, std::vector<short> &vshed)
+{
+    char* file_name;
+    asprintf(&file_name, "./viewshed-%d.raw", num_processes);
+
+    std::ofstream output_raw(file_name, std::ios::binary | std::ios::trunc);
+    if (!output_raw.is_open())
+    {
+        return 1;
+    }
+
+    printf("Writing output to file %s...  ", file_name);
+    output_raw.write((char const*)&vshed[0], map_width * map_width * sizeof(short));
+    printf("Done!\n");
+
+    output_raw.close();
+    free(file_name);
     return 0;
 }
 
