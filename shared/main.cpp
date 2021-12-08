@@ -9,7 +9,7 @@
 using namespace std::chrono;
 
 const int map_width = 6000; // TODO: fix this to 6000
-const int mask_width = 15; // mask == range, the width of the box shaped range one can see from the origin
+const int range = 15; // the width of the box shaped range one can see from the origin
 const char* dem_location = "../data/srtm_14_04_6000x6000_short16.raw";
 int num_threads = 8;
 
@@ -18,8 +18,6 @@ void testDemRead(std::vector<short> &dem);
 void bLineDown(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& max_slope, short& origin_height);
 void bLineUp(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& max_slope, short& origin_height);
 void bLine(int x0, int y0, int x1, int y1, std::vector<short> &dem, float& max_slope, short& origin_height);
-void generateMask(std::vector<std::vector<short>> &mask);
-void reportMask(std::vector<std::vector<short>> &mask);
 short singleViewshedCount(int origin, std::vector<short> &dem);
 void toGridCoords(int& index, int& x, int& y);
 void toFlatCoords(int& x, int& y, int& index);
@@ -28,6 +26,7 @@ int writeViewshed(std::vector<short> &vshed);
 
 int main()
 {
+    auto start_total_exec = high_resolution_clock::now();
     // Digital Elevation Map: 6000x6000 array of shorts
     std::vector<short> dem;
     if (openDem(dem_location, dem))
@@ -51,12 +50,10 @@ int main()
     //         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
     //         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
-    auto start = high_resolution_clock::now();
+    auto start_viewshed_comp = high_resolution_clock::now();
     std::vector<short> vshed(map_width * map_width, 0);
     computeTotalViewshed(dem, vshed);
-    auto total_execution = duration_cast<milliseconds>(high_resolution_clock::now() - start);
-
-    printf("Total execution time (ms): %d\n", total_execution);
+    auto viewshed_comp = duration_cast<milliseconds>(high_resolution_clock::now() - start_viewshed_comp);
 
     // printf("First 20 values:\n");
     // int i;
@@ -78,6 +75,9 @@ int main()
     // }
 
     writeViewshed(vshed);
+
+    auto total_execution = duration_cast<milliseconds>(high_resolution_clock::now() - start_total_exec);
+    printf("Viewshed computation time: %d\nTotal execution time (ms): %d\n", viewshed_comp, total_execution);
 
     return 0;
 }
@@ -130,8 +130,8 @@ short singleViewshedCount(int origin, std::vector<short> &dem)
     ox = static_cast<float>(origin % map_width);
     oy = static_cast<float>(origin / map_width);
 
-    int range_length = (mask_width * mask_width - 1) / 2;
-    int range_radius = (mask_width - 1) / 2;
+    int range_length = (range * range - 1) / 2;
+    int range_radius = (range - 1) / 2;
     int p;
     // TODO: this is likely partially correct, still need to figure out left and right bounds
     for (int i = -range_radius; i <= range_radius; ++i)
