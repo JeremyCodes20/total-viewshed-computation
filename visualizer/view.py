@@ -1,5 +1,6 @@
 import matplotlib.pyplot as pyplot
 import matplotlib.image as mpimg
+import matplotlib.colors as mpcolor
 import numpy as np
 
 def main():
@@ -14,6 +15,13 @@ def main():
     dem_dist = dem_dist.reshape(6000, 6000)
 
     pyplot.imshow(dem_dist)
+    pyplot.colorbar()
+    pyplot.show()
+
+    dem_shared = np.fromfile("../shared/viewshed-shared.raw", dtype=np.short, count=6000*6000)
+    dem_shared = dem_shared.reshape(6000, 6000)
+
+    pyplot.imshow(dem_shared)
     pyplot.colorbar()
     pyplot.show()
 
