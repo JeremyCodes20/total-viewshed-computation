@@ -1,14 +1,22 @@
 # CS5030 Final Project - Total Viewshed Computation
-## Jeremy Young A02276992
+## Jeremy Young
 
 ***
+
+Program to compute the total viewshed given a geographical dataset. Includes three parallel implementations:
+
+* Shared using OpenMP
+* GPU using CUDA
+* Distributed using MPI
+
+![Result](./img/total-viewshed.png)
 
 ## Compilation instructions
 ### **Shared**
 
 Required modules: `module load gcc/6`
 
-Compile: `g++ -fopenmp -W -O3 -o main main.cpp`
+Compile: `g++ -fopenmp -W -O3 -o main ./main.cpp`
 
 Run: `./main`
 
